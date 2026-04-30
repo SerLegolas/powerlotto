@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
     const message = error instanceof Error ? error.message : String(error);
     console.error("Auth error:", message);
     return NextResponse.json(
-      { error: "Internal server error", detail: message },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }

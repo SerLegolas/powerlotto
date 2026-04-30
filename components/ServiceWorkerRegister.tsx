@@ -69,7 +69,7 @@ async function subscribeToPushNotifications() {
     // Send subscription to server
     const token = localStorage.getItem('authToken');
     if (token) {
-      const subscriptionJSON = newSubscription.toJSON() as any;
+      const subscriptionJSON = newSubscription.toJSON() as { endpoint: string; keys: Record<string, string> };
       
       await fetch('/api/push/subscribe', {
         method: 'POST',

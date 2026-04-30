@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Poppins } from "next/font/google";
 import "./globals.css";
 import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
@@ -19,6 +19,9 @@ export const metadata: Metadata = {
     },
   ],
   manifest: "/manifest.json",
+};
+
+export const viewport: Viewport = {
   themeColor: "#FFD200",
 };
 

@@ -60,7 +60,7 @@ export function MagicLottoComponent() {
         },
         body: JSON.stringify({
           ruota,
-          colonne: parseInt(colonne as any),
+          colonne: parseInt(String(colonne)),
           superstar,
           metodo,
         }),

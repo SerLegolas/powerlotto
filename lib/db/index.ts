@@ -24,7 +24,7 @@ export function getDb() {
 // Compatibilità retroattiva: esporta db come getter lazy
 export const db = new Proxy({} as ReturnType<typeof drizzle>, {
   get(_target, prop) {
-    return (getDb() as any)[prop];
+    return (getDb() as ReturnType<typeof drizzle>)[prop as keyof ReturnType<typeof drizzle>];
   },
 });
 

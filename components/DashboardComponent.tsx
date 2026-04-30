@@ -122,7 +122,6 @@ export function DashboardComponent() {
   const autoRegenerateInitialized = useRef(false);
   const saveInFlightRef = useRef(false);
   const [plays, setPlays] = useState<Play[]>([]);
-  const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<{ id: string; email: string } | null>(null);
   const [authenticated, setAuthenticated] = useState(false);
   const [selectedCity, setSelectedCity] = useState('Bari');
@@ -146,29 +145,29 @@ export function DashboardComponent() {
       router.replace('/login');
       return;
     }
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setAuthenticated(true);
+    // eslint-disable-next-line react-hooks/immutability
     fetchUserData();
+    // eslint-disable-next-line react-hooks/immutability
     fetchPlays();
+    // eslint-disable-next-line react-hooks/immutability
     fetchDraws();
+    // eslint-disable-next-line react-hooks/immutability
     fetchStats();
   }, [router]);
 
   useEffect(() => {
     // Numero Oro e consentito solo per Ambo, Terno e Quaterna.
     if (columns < 2 || columns > 4) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setNumeroOro(false);
       setNumeroOroValue(null);
     }
   }, [columns]);
 
-  useEffect(() => {
-    if (numbersMode === 'magic') {
-      setColumns(Math.floor(Math.random() * 5) + 1);
-      setStakeAmount(1);
-    }
-  }, [numbersMode]);
 
-  const fetchUserData = async () => {
+  async function fetchUserData() {
     try {
       const token = localStorage.getItem('authToken');
       if (token) {
@@ -183,9 +182,9 @@ export function DashboardComponent() {
     } catch (err) {
       console.error('Error fetching user data:', err);
     }
-  };
+  }
 
-  const fetchPlays = async () => {
+  async function fetchPlays() {
     try {
       const token = localStorage.getItem('authToken');
       const response = await fetch('/api/plays', {
@@ -202,12 +201,10 @@ export function DashboardComponent() {
       setPlays(data);
     } catch (err) {
       console.error('Error fetching plays:', err);
-    } finally {
-      setLoading(false);
     }
-  };
+  }
 
-  const fetchDraws = async () => {
+  async function fetchDraws() {
     try {
       const response = await fetch('/api/draws?limit=500', { cache: 'no-store' });
       if (!response.ok) throw new Error('Failed to fetch draws');
@@ -238,9 +235,9 @@ export function DashboardComponent() {
     } catch (err) {
       console.error('Error fetching draws:', err);
     }
-  };
+  }
 
-  const fetchStats = async () => {
+  async function fetchStats() {
     try {
       const response = await fetch('/api/stats', { cache: 'no-store' });
       if (!response.ok) {
@@ -285,7 +282,7 @@ export function DashboardComponent() {
     } catch (err) {
       console.error('Error fetching stats:', err);
     }
-  };
+  }
 
   const handleLogout = () => {
     localStorage.removeItem('authToken');
@@ -400,12 +397,15 @@ export function DashboardComponent() {
     }
     setGeneratedNumbers(numbers);
 
+    const totalWin = calculateEstimatedTotalWin();
+    setShowMaxWinModal(totalWin > SINGLE_PLAY_MAX_WIN);
+
     if (numeroOro && columns >= 2 && columns <= 4) {
       setNumeroOroValue(Math.floor(Math.random() * 90) + 1);
     } else {
       setNumeroOroValue(null);
     }
-  }, [columns, numeroOro]);
+  }, [columns, numeroOro, calculateEstimatedTotalWin]);
 
   const generateMagicNumbers = useCallback(() => {
     const magicColumns = Math.floor(Math.random() * 5) + 1;
@@ -421,12 +421,15 @@ export function DashboardComponent() {
     }
     setGeneratedNumbers(numbers);
 
+    const magicTotalWin = calculateEstimatedTotalWin();
+    setShowMaxWinModal(magicTotalWin > SINGLE_PLAY_MAX_WIN);
+
     if (numeroOro && magicColumns >= 2 && magicColumns <= 4) {
       setNumeroOroValue(Math.floor(Math.random() * 90) + 1);
     } else {
       setNumeroOroValue(null);
     }
-  }, [numeroOro]);
+  }, [numeroOro, calculateEstimatedTotalWin]);
 
   const handleRegenerate = useCallback(() => {
     if (numbersMode === 'magic') {
@@ -460,11 +463,10 @@ export function DashboardComponent() {
     generateMagicNumbers();
   }, [authenticated, numbersMode, numeroOro, generateMagicNumbers]);
 
-  useEffect(() => {
-    if (!authenticated || generatedNumbers.length === 0) return;
-    const estimatedTotalWin = calculateEstimatedTotalWin();
-    setShowMaxWinModal(estimatedTotalWin > SINGLE_PLAY_MAX_WIN);
-  }, [authenticated, generatedNumbers, numeroOroValue, calculateEstimatedTotalWin]);
+  const estimatedTotalWin = (authenticated && generatedNumbers.length > 0)
+    ? calculateEstimatedTotalWin()
+    : 0;
+  void estimatedTotalWin;
 
   if (!authenticated) return null;
 

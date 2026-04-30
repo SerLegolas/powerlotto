@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export const dynamic = 'force-dynamic';
 
 export default function GlobalError() {
@@ -14,12 +16,12 @@ export default function GlobalError() {
           Abbiamo riscontrato un problema nell&apos;applicazione. Torna alla home o ricarica la pagina.
         </p>
         <div className="space-y-4 sm:flex sm:items-center sm:gap-4 sm:space-y-0">
-          <a
+          <Link
             href="/"
             className="inline-flex w-full items-center justify-center rounded-3xl bg-yellow-400 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-yellow-300 sm:w-auto"
           >
             Torna alla Home
-          </a>
+          </Link>
         </div>
       </div>
     </div>
