@@ -12,6 +12,7 @@ interface Play {
   colonne: number;
   costo: number;
   ruota: string;
+  confermata: number | null;
   createdAt: string;
 }
 
@@ -29,12 +30,10 @@ interface Draw {
 function formatDate(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString('it-IT', {
+  return date.toLocaleDateString('it-IT', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
   });
 }
 
@@ -155,10 +154,6 @@ export default function StoricoGiocatePage() {
     () => plays.reduce((sum, play) => sum + Number(play.costo || 0), 0),
     [plays]
   );
-  const numeroOroCount = useMemo(
-    () => plays.filter((play) => play.superstar !== null).length,
-    [plays]
-  );
 
   const calcPlayWin = (play: Play, drawList: Draw[]): number => {
     const playNumbers = Array.from(new Set(parseNumbers(play.numbers)));
@@ -181,6 +176,13 @@ export default function StoricoGiocatePage() {
   const totalWins = useMemo(() => {
     if (!plays.length || !draws.length) return 0;
     return plays.reduce((acc, play) => acc + calcPlayWin(play, draws), 0);
+  }, [plays, draws]);
+
+  const totalWinsReali = useMemo(() => {
+    if (!plays.length || !draws.length) return 0;
+    return plays
+      .filter((play) => (play.confermata ?? 0) === 1)
+      .reduce((acc, play) => acc + calcPlayWin(play, draws), 0);
   }, [plays, draws]);
 
   return (
@@ -252,15 +254,19 @@ export default function StoricoGiocatePage() {
             </p>
           </div>
           <div style={{ background: 'linear-gradient(135deg, #d32f2f 0%, #b71c1c 100%)', color: 'white', padding: '20px', borderRadius: 12, textAlign: 'center', boxShadow: '0 4px 12px rgba(211,47,47,0.3)' }}>
-            <p style={{ margin: '0 0 8px 0', fontSize: 12, fontWeight: 600, opacity: 0.9 }}>Giocate Con Numero Oro</p>
-            <p style={{ margin: 0, fontSize: 32, fontWeight: 700 }}>{numeroOroCount}</p>
-          </div>
-          <div style={{ background: 'linear-gradient(135deg, #2e7d32 0%, #1b5e20 100%)', color: 'white', padding: '20px', borderRadius: 12, textAlign: 'center', boxShadow: '0 4px 12px rgba(46,125,50,0.3)' }}>
-            <p style={{ margin: '0 0 8px 0', fontSize: 12, fontWeight: 600, opacity: 0.9 }}>Vincite Totali (da uscite)</p>
+            <p style={{ margin: '0 0 8px 0', fontSize: 12, fontWeight: 600, opacity: 0.9 }}>Vincite Totali su Estrazioni</p>
             <p style={{ margin: 0, fontSize: 32, fontWeight: 700 }}>
               {drawsLoading
                 ? '--'
                 : `€${totalWins.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+            </p>
+          </div>
+          <div style={{ background: 'linear-gradient(135deg, #2e7d32 0%, #1b5e20 100%)', color: 'white', padding: '20px', borderRadius: 12, textAlign: 'center', boxShadow: '0 4px 12px rgba(46,125,50,0.3)' }}>
+            <p style={{ margin: '0 0 8px 0', fontSize: 12, fontWeight: 600, opacity: 0.9 }}>Vincite su Giocate Reali</p>
+            <p style={{ margin: 0, fontSize: 32, fontWeight: 700 }}>
+              {drawsLoading
+                ? '--'
+                : `€${totalWinsReali.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
             </p>
           </div>
         </div>
@@ -306,6 +312,22 @@ export default function StoricoGiocatePage() {
                 const winText = playWin !== null
                   ? `€${playWin.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                   : null;
+                const isReale = (play.confermata ?? 0) === 1;
+
+                const toggleConfermata = async () => {
+                  const token = localStorage.getItem('authToken');
+                  const newVal = isReale ? 0 : 1;
+                  setPlays((prev) => prev.map((p) => p.id === play.id ? { ...p, confermata: newVal } : p));
+                  try {
+                    await fetch('/api/plays', {
+                      method: 'PATCH',
+                      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                      body: JSON.stringify({ id: play.id, confermata: newVal }),
+                    });
+                  } catch {
+                    setPlays((prev) => prev.map((p) => p.id === play.id ? { ...p, confermata: isReale ? 1 : 0 } : p));
+                  }
+                };
 
                 return (
                   <article
@@ -333,7 +355,24 @@ export default function StoricoGiocatePage() {
                           }}>🏆 HAI VINTO</span>
                         )}
                       </div>
-                      <p style={{ margin: 0, fontSize: 12, color: '#666' }}>{formatDate(play.createdAt)}</p>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                        <p style={{ margin: 0, fontSize: 12, color: '#666' }}>{formatDate(play.createdAt)}</p>
+                        <button
+                          onClick={toggleConfermata}
+                          style={{
+                            border: 'none',
+                            borderRadius: 20,
+                            padding: '3px 12px',
+                            fontSize: 12,
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            background: isReale ? '#2e7d32' : '#e0e0e0',
+                            color: isReale ? 'white' : '#555',
+                          }}
+                        >
+                          {isReale ? '✅ Giocata reale' : '📝 Simulata'}
+                        </button>
+                      </div>
                     </div>
 
                     <div style={{ marginBottom: 10, display: 'flex', flexWrap: 'wrap', gap: 6 }}>

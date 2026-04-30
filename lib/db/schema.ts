@@ -49,6 +49,7 @@ export const plays = sqliteTable("plays", {
   colonne: integer("colonne").notNull().default(1), // number of columns
   costo: real("costo").notNull(), // total cost
   ruota: text("ruota").default(""), // ruota scelta (es. Bari, Nazionale, ecc.)
+  confermata: integer("confermata").default(0), // 0=simulata, 1=reale
   createdAt: text("created_at").default(sql`CURRENT_TIMESTAMP`),
 });
 

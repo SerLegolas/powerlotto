@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { plays } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { verifyToken } from "@/lib/utils/jwt";
 import { randomUUID } from "crypto";
 
@@ -118,6 +118,45 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(newPlay[0], { status: 201 });
   } catch (error) {
     console.error("Play creation error:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const token = getAuthToken(request);
+    if (!token) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const payload = verifyToken(token);
+    if (!payload) {
+      return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const { id, confermata } = body;
+
+    if (!id || typeof confermata !== "number") {
+      return NextResponse.json({ error: "Invalid data" }, { status: 400 });
+    }
+
+    const updated = await db
+      .update(plays)
+      .set({ confermata })
+      .where(and(eq(plays.id, id), eq(plays.userId, payload.userId)))
+      .returning();
+
+    if (updated.length === 0) {
+      return NextResponse.json({ error: "Play not found" }, { status: 404 });
+    }
+
+    return NextResponse.json(updated[0]);
+  } catch (error) {
+    console.error("Play update error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

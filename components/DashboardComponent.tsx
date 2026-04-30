@@ -119,7 +119,6 @@ const getStatsFromDraws = (draws: Draw[]) => {
 
 export function DashboardComponent() {
   const router = useRouter();
-  const autoRegenerateInitialized = useRef(false);
   const saveInFlightRef = useRef(false);
   const drawsAutoRefreshDoneRef = useRef(false);
   const [isStandaloneApp, setIsStandaloneApp] = useState(false);
@@ -129,7 +128,7 @@ export function DashboardComponent() {
   const [selectedCity, setSelectedCity] = useState('Bari');
   const [numbersMode, setNumbersMode] = useState<'magic' | 'manual'>('magic');
   const [columns, setColumns] = useState(5);
-  const [stakeAmount, setStakeAmount] = useState(2);
+  const [stakeAmount, setStakeAmount] = useState(1);
   const [numeroOro, setNumeroOro] = useState(false);
   const [numeroOroValue, setNumeroOroValue] = useState<number | null>(null);
   const [generatedNumbers, setGeneratedNumbers] = useState<number[]>([]);
@@ -428,21 +427,19 @@ export function DashboardComponent() {
       numbers.push(num);
     }
     setGeneratedNumbers(numbers);
+    setNumeroOroValue(null);
+    setNumeroOro(false);
 
     const totalWin = calculateEstimatedTotalWin();
     setShowMaxWinModal(totalWin > SINGLE_PLAY_MAX_WIN);
-
-    if (numeroOro && columns >= 2 && columns <= 4) {
-      setNumeroOroValue(Math.floor(Math.random() * 90) + 1);
-    } else {
-      setNumeroOroValue(null);
-    }
-  }, [columns, numeroOro, calculateEstimatedTotalWin]);
+  }, [columns, calculateEstimatedTotalWin]);
 
   const generateMagicNumbers = useCallback(() => {
     const magicColumns = Math.floor(Math.random() * 5) + 1;
     setColumns(magicColumns);
     setStakeAmount(1);
+    setNumeroOro(false);
+    setNumeroOroValue(null);
 
     const randomCity = cities[Math.floor(Math.random() * cities.length)];
     setSelectedCity(randomCity);
@@ -455,13 +452,7 @@ export function DashboardComponent() {
 
     const magicTotalWin = calculateEstimatedTotalWin();
     setShowMaxWinModal(magicTotalWin > SINGLE_PLAY_MAX_WIN);
-
-    if (numeroOro && magicColumns >= 2 && magicColumns <= 4) {
-      setNumeroOroValue(Math.floor(Math.random() * 90) + 1);
-    } else {
-      setNumeroOroValue(null);
-    }
-  }, [numeroOro, calculateEstimatedTotalWin]);
+  }, [calculateEstimatedTotalWin]);
 
   const handleRegenerate = useCallback(() => {
     if (numbersMode === 'magic') {
@@ -470,30 +461,6 @@ export function DashboardComponent() {
     }
     generateManualNumbers();
   }, [numbersMode, generateMagicNumbers, generateManualNumbers]);
-
-  useEffect(() => {
-    if (!authenticated || numbersMode !== 'manual') return;
-
-    // Non rigenerare automaticamente al primo render autenticato.
-    if (!autoRegenerateInitialized.current) {
-      autoRegenerateInitialized.current = true;
-      return;
-    }
-
-    generateManualNumbers();
-  }, [authenticated, numbersMode, columns, numeroOro, generateManualNumbers]);
-
-  useEffect(() => {
-    if (!authenticated || numbersMode !== 'magic') return;
-
-    // Non rigenerare automaticamente al primo render autenticato.
-    if (!autoRegenerateInitialized.current) {
-      autoRegenerateInitialized.current = true;
-      return;
-    }
-
-    generateMagicNumbers();
-  }, [authenticated, numbersMode, numeroOro, generateMagicNumbers]);
 
   const estimatedTotalWin = (authenticated && generatedNumbers.length > 0)
     ? calculateEstimatedTotalWin()
@@ -705,6 +672,9 @@ export function DashboardComponent() {
                     const value = e.target.value;
                     if (value === 'magic') {
                       setNumbersMode('magic');
+                      setStakeAmount(1);
+                      setNumeroOro(false);
+                      setNumeroOroValue(null);
                     } else {
                       setNumbersMode('manual');
                       setColumns(Number(value));
@@ -760,10 +730,18 @@ export function DashboardComponent() {
               <input
                 type="checkbox"
                 checked={numeroOro}
-                disabled={!numeroOroEligible}
-                onChange={(e) => setNumeroOro(e.target.checked)}
+                disabled={!numeroOroEligible || numbersMode === 'magic'}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setNumeroOro(checked);
+                  if (checked && columns >= 2 && columns <= 4) {
+                    setNumeroOroValue(Math.floor(Math.random() * 90) + 1);
+                  } else {
+                    setNumeroOroValue(null);
+                  }
+                }}
               />
-              <span style={{ fontWeight: 600, color: numeroOroEligible ? '#001f7f' : '#999' }}>
+              <span style={{ fontWeight: 600, color: (numeroOroEligible && numbersMode !== 'magic') ? '#001f7f' : '#999' }}>
                 Numero Oro
               </span>
             </label>
