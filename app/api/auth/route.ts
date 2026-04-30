@@ -104,9 +104,10 @@ export async function POST(request: NextRequest) {
       );
     }
   } catch (error) {
-    console.error("Auth error:", error);
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("Auth error:", message);
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: "Internal server error", detail: message },
       { status: 500 }
     );
   }
