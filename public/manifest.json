@@ -1,0 +1,52 @@
+{
+  "name": "PowerLotto",
+  "short_name": "PowerLotto",
+  "description": "PWA per generare giocate Lotto intelligenti con MagicLotto, statistiche, storico e notifiche.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#E6F3FF",
+  "theme_color": "#FFD200",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/maskable-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/maskable-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [],
+  "categories": ["games", "lifestyle"],
+  "shortcuts": [
+    {
+      "name": "Genera Giocata",
+      "short_name": "Genera",
+      "description": "Genera una nuova giocata con MagicLotto",
+      "url": "/?mode=generate",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Storico",
+      "short_name": "Storico",
+      "description": "Visualizza lo storico delle giocate",
+      "url": "/?mode=history",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}
