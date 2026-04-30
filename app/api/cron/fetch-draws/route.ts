@@ -7,24 +7,19 @@ import { fetchDraws } from "@/scripts/fetch-draws";
  */
 export async function GET(request: NextRequest) {
   const isDev = process.env.NODE_ENV !== "production";
-  const cronSecret = process.env.CRON_SECRET;
 
-  // In production, require a shared secret for Vercel Cron or external schedulers.
+  // In production, verifica il token solo se CRON_SECRET è configurato.
   if (!isDev) {
-    if (!cronSecret) {
-      return NextResponse.json(
-        { error: "Server misconfigured: CRON_SECRET is missing" },
-        { status: 500 }
-      );
-    }
+    const cronSecret = process.env.CRON_SECRET;
+    if (cronSecret) {
+      const auth = request.headers.get("authorization");
+      const bearerToken = auth?.startsWith("Bearer ") ? auth.slice(7) : null;
+      const queryToken = request.nextUrl.searchParams.get("token");
+      const providedToken = bearerToken ?? queryToken;
 
-    const auth = request.headers.get("authorization");
-    const bearerToken = auth?.startsWith("Bearer ") ? auth.slice(7) : null;
-    const queryToken = request.nextUrl.searchParams.get("token");
-    const providedToken = bearerToken ?? queryToken;
-
-    if (providedToken !== cronSecret) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      if (providedToken !== cronSecret) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
     }
   }
 
