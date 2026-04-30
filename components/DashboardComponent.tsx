@@ -122,6 +122,7 @@ export function DashboardComponent() {
   const autoRegenerateInitialized = useRef(false);
   const saveInFlightRef = useRef(false);
   const drawsAutoRefreshDoneRef = useRef(false);
+  const [isStandaloneApp, setIsStandaloneApp] = useState(false);
   const [plays, setPlays] = useState<Play[]>([]);
   const [user, setUser] = useState<{ id: string; email: string } | null>(null);
   const [authenticated, setAuthenticated] = useState(false);
@@ -167,6 +168,25 @@ export function DashboardComponent() {
       setNumeroOroValue(null);
     }
   }, [columns]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const mediaQuery = window.matchMedia('(display-mode: standalone)');
+    const updateDisplayMode = () => {
+      setIsStandaloneApp(
+        mediaQuery.matches ||
+        ((window.navigator as Navigator & { standalone?: boolean }).standalone ?? false)
+      );
+    };
+
+    updateDisplayMode();
+    mediaQuery.addEventListener?.('change', updateDisplayMode);
+
+    return () => {
+      mediaQuery.removeEventListener?.('change', updateDisplayMode);
+    };
+  }, []);
 
 
   async function fetchUserData() {
@@ -511,6 +531,12 @@ export function DashboardComponent() {
     ? `€${displayedTotalPotentialWin.toLocaleString('it-IT', { maximumFractionDigits: 2 })}`
     : `€${displayedTotalPotentialWin.toFixed(2).replace('.', ',')}`;
   const playType = playTypeLabel[columns] ?? '';
+  const latestDrawTableFontSize = isStandaloneApp ? '10px' : '12px';
+  const latestDrawRowLabelWidth = isStandaloneApp ? 58 : 85;
+  const latestDrawRowLabelFontSize = isStandaloneApp ? '9px' : '11px';
+  const latestDrawCellPadding = isStandaloneApp ? '6px 2px' : '8px 4px';
+  const latestDrawBallSize = isStandaloneApp ? 24 : 30;
+  const latestDrawBallFontSize = isStandaloneApp ? '10px' : '12px';
 
   return (
     <div style={{ minHeight: '100vh', background: '#f5f5f5', fontFamily: 'Arial, sans-serif' }}>
@@ -548,7 +574,7 @@ export function DashboardComponent() {
               fontWeight: 600,
             }}
           >
-            Storico Giocate
+            Giocate
           </button>
           <button
             onClick={handleLogout}
@@ -587,8 +613,8 @@ export function DashboardComponent() {
               {new Date(lastDraw.date).toLocaleDateString('it-IT', { day: '2-digit', month: 'long', year: 'numeric' })}
             </p>
           )}
-          <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', minWidth: 0 }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', minWidth: 520 }}>
+          <div style={{ overflowX: isStandaloneApp ? 'hidden' : 'auto', WebkitOverflowScrolling: 'touch', minWidth: 0 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: latestDrawTableFontSize, minWidth: isStandaloneApp ? 0 : 520, tableLayout: isStandaloneApp ? 'fixed' : 'auto' }}>
               <tbody>
                 {allWheels.map((wheel) => {
                   const nums = lastDraw?.byRuota[wheel] || [];
@@ -596,23 +622,23 @@ export function DashboardComponent() {
                   const colors = ['#0066cc', '#ffa500', '#ff6600', '#d32f2f', '#ffcc00'];
                   return (
                     <tr key={wheel} style={{ borderBottom: '1px solid #eee' }}>
-                      <td style={{ padding: '8px 6px', fontWeight: 600, color: '#001f7f', minWidth: 85, fontSize: '11px' }}>
-                        🎯 {wheel}
+                      <td style={{ padding: isStandaloneApp ? '6px 4px' : '8px 6px', fontWeight: 600, color: '#001f7f', minWidth: latestDrawRowLabelWidth, width: latestDrawRowLabelWidth, fontSize: latestDrawRowLabelFontSize, lineHeight: 1.1 }}>
+                        {isStandaloneApp ? wheel : `🎯 ${wheel}`}
                       </td>
                       {visibleNums.map((num, idx) => (
-                        <td key={idx} style={{ padding: '8px 4px', textAlign: 'center' }}>
+                        <td key={idx} style={{ padding: latestDrawCellPadding, textAlign: 'center' }}>
                           <span
                             style={{
                               display: 'inline-flex',
                               alignItems: 'center',
                               justifyContent: 'center',
-                              width: 30,
-                              height: 30,
+                              width: latestDrawBallSize,
+                              height: latestDrawBallSize,
                               borderRadius: '50%',
                               background: colors[idx],
                               color: 'white',
                               fontWeight: 700,
-                              fontSize: '12px',
+                              fontSize: latestDrawBallFontSize,
                             }}
                           >
                             {num}
