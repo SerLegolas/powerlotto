@@ -3,15 +3,15 @@
   "devCommand": "npm run dev",
   "installCommand": "npm install",
   "framework": "nextjs",
-  "env": [
-    "TURSO_CONNECTION_URL",
-    "TURSO_AUTH_TOKEN",
-    "JWT_SECRET",
-    "NEXT_PUBLIC_VAPID_PUBLIC_KEY",
-    "VAPID_PRIVATE_KEY",
-    "VAPID_EMAIL",
-    "NEXT_PUBLIC_API_URL"
-  ],
+  "env": {
+    "TURSO_CONNECTION_URL": "",
+    "TURSO_AUTH_TOKEN": "",
+    "JWT_SECRET": "",
+    "NEXT_PUBLIC_VAPID_PUBLIC_KEY": "",
+    "VAPID_PRIVATE_KEY": "",
+    "VAPID_EMAIL": "",
+    "NEXT_PUBLIC_API_URL": ""
+  },
   "crons": [
     {
       "path": "/api/cron/fetch-draws",
