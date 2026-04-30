@@ -15,8 +15,7 @@
   "crons": [
     {
       "path": "/api/cron/fetch-draws",
-      "schedule": "0 22 * * *",
-      "description": "Fetch lottery draws daily at 10 PM"
+      "schedule": "0 22 * * *"
     }
   ],
   "headers": [
