@@ -1,4 +1,4 @@
-const CACHE_NAME = "powerlotto-v3";
+const CACHE_NAME = "powerlotto-v1777556349719";
 const OFFLINE_URL = "/offline.html";
 
 const STATIC_ASSETS = [
