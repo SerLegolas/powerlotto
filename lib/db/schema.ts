@@ -3,6 +3,7 @@ import {
   integer,
   real,
   sqliteTable,
+  uniqueIndex,
 } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
 
@@ -32,10 +33,12 @@ export const stats = sqliteTable("stats", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   ruota: text("ruota").notNull(),
   numero: integer("numero").notNull(),
-  ritardo: integer("ritardo").notNull().default(0), // dias since last extraction
-  frequenza: integer("frequenza").notNull().default(0), // number of times extracted
+  ritardo: integer("ritardo").notNull().default(0),
+  frequenza: integer("frequenza").notNull().default(0),
   updatedAt: text("updated_at").default(sql`CURRENT_TIMESTAMP`),
-});
+}, (table) => [
+  uniqueIndex("stats_ruota_numero_idx").on(table.ruota, table.numero),
+]);
 
 // Plays table (giocate dell'utente)
 export const plays = sqliteTable("plays", {

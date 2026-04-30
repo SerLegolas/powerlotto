@@ -6,11 +6,26 @@ import { fetchDraws } from "@/scripts/fetch-draws";
  * Called daily to fetch latest lottery draws
  */
 export async function GET(request: NextRequest) {
-  // Verify the request is from Vercel
-  const auth = request.headers.get("authorization");
   const isDev = process.env.NODE_ENV !== "production";
-  if (!isDev && auth !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const cronSecret = process.env.CRON_SECRET;
+
+  // In production, require a shared secret for Vercel Cron or external schedulers.
+  if (!isDev) {
+    if (!cronSecret) {
+      return NextResponse.json(
+        { error: "Server misconfigured: CRON_SECRET is missing" },
+        { status: 500 }
+      );
+    }
+
+    const auth = request.headers.get("authorization");
+    const bearerToken = auth?.startsWith("Bearer ") ? auth.slice(7) : null;
+    const queryToken = request.nextUrl.searchParams.get("token");
+    const providedToken = bearerToken ?? queryToken;
+
+    if (providedToken !== cronSecret) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
   }
 
   try {

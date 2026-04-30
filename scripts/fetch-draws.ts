@@ -1,6 +1,6 @@
 import "dotenv/config";
 import axios from "axios";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { draws, stats } from "@/lib/db/schema";
 
@@ -179,34 +179,29 @@ async function recomputeStats(): Promise<number> {
       }
     });
 
-    for (let numero = 1; numero <= 90; numero++) {
-      const existing = await db
-        .select({ id: stats.id })
-        .from(stats)
-        .where(and(eq(stats.ruota, wheel), eq(stats.numero, numero)))
-        .limit(1);
+    // Upsert batch: un'unica operazione per ruota invece di 90 query singole
+    const now = new Date().toISOString();
+    const rows = Array.from({ length: 90 }, (_, i) => ({
+      ruota: wheel,
+      numero: i + 1,
+      ritardo: delay[i + 1],
+      frequenza: frequency[i + 1],
+      updatedAt: now,
+    }));
 
-      if (existing.length) {
-        await db
-          .update(stats)
-          .set({
-            ritardo: delay[numero],
-            frequenza: frequency[numero],
-            updatedAt: new Date().toISOString(),
-          })
-          .where(eq(stats.id, existing[0].id));
-      } else {
-        await db.insert(stats).values({
-          ruota: wheel,
-          numero,
-          ritardo: delay[numero],
-          frequenza: frequency[numero],
-          updatedAt: new Date().toISOString(),
-        });
-      }
+    await db
+      .insert(stats)
+      .values(rows)
+      .onConflictDoUpdate({
+        target: [stats.ruota, stats.numero],
+        set: {
+          ritardo: sql`excluded.ritardo`,
+          frequenza: sql`excluded.frequenza`,
+          updatedAt: sql`excluded.updated_at`,
+        },
+      });
 
-      updated += 1;
-    }
+    updated += rows.length;
   }
 
   return updated;
