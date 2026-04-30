@@ -421,11 +421,11 @@ export function DashboardComponent() {
   const generateManualNumbers = useCallback(() => {
     const randomCity = cities[Math.floor(Math.random() * cities.length)];
     setSelectedCity(randomCity);
-    const numbers: number[] = [];
-    for (let i = 0; i < columns; i++) {
-      const num = Math.floor(Math.random() * 90) + 1;
-      numbers.push(num);
+    const pool = new Set<number>();
+    while (pool.size < columns) {
+      pool.add(Math.floor(Math.random() * 90) + 1);
     }
+    const numbers = Array.from(pool);
     setGeneratedNumbers(numbers);
     setNumeroOroValue(null);
     setNumeroOro(false);
@@ -443,16 +443,34 @@ export function DashboardComponent() {
 
     const randomCity = cities[Math.floor(Math.random() * cities.length)];
     setSelectedCity(randomCity);
-    const numbers: number[] = [];
-    for (let i = 0; i < magicColumns; i++) {
-      const num = Math.floor(Math.random() * 90) + 1;
-      numbers.push(num);
+
+    // Ponderazione: costruiamo un pool pesato.
+    // Numeri ritardatari peso 3, frequenti peso 2, caldi peso 2, resto peso 1.
+    const weightMap = new Map<number, number>();
+    const addWeight = (nums: number[], w: number) => {
+      nums.forEach((n) => weightMap.set(n, (weightMap.get(n) ?? 1) + w));
+    };
+    addWeight(delayedNumbers, 3);
+    addWeight(frequentNumbers, 2);
+    addWeight(hotNumbers, 2);
+
+    // Tutti i numeri 1-90 con peso base 1
+    const weightedPool: number[] = [];
+    for (let n = 1; n <= 90; n++) {
+      const w = weightMap.get(n) ?? 1;
+      for (let i = 0; i < w; i++) weightedPool.push(n);
     }
+
+    const pool = new Set<number>();
+    while (pool.size < magicColumns) {
+      pool.add(weightedPool[Math.floor(Math.random() * weightedPool.length)]);
+    }
+    const numbers = Array.from(pool);
     setGeneratedNumbers(numbers);
 
     const magicTotalWin = calculateEstimatedTotalWin();
     setShowMaxWinModal(magicTotalWin > SINGLE_PLAY_MAX_WIN);
-  }, [calculateEstimatedTotalWin]);
+  }, [delayedNumbers, frequentNumbers, hotNumbers, calculateEstimatedTotalWin]);
 
   const handleRegenerate = useCallback(() => {
     if (numbersMode === 'magic') {
@@ -847,16 +865,15 @@ export function DashboardComponent() {
                 disabled={isSavingPlay}
                 style={{
                   margin: '12px auto 0 auto',
-                  width: '50%',
                   display: 'block',
-                  padding: '10px 12px',
-                  background: isSavingPlay ? '#9bb7f5' : '#0d47a1',
+                  padding: '8px 24px',
+                  background: isSavingPlay ? '#81c784' : '#2e7d32',
                   color: 'white',
                   border: 'none',
                   borderRadius: 6,
                   fontWeight: 700,
                   cursor: isSavingPlay ? 'not-allowed' : 'pointer',
-                  fontSize: 14,
+                  fontSize: 13,
                 }}
               >
                 {isSavingPlay ? 'Salvataggio...' : '💾 Salva giocata'}
@@ -869,37 +886,21 @@ export function DashboardComponent() {
             </div>
           )}
 
-          <div style={{ display: 'flex', gap: 12 }}>
+          <div style={{ display: 'flex', justifyContent: 'center' }}>
             <button
               onClick={handleRegenerate}
               style={{
-                flex: 1,
-                padding: '12px',
+                padding: '8px 24px',
                 background: '#0066cc',
                 color: 'white',
                 border: 'none',
                 borderRadius: 6,
                 fontWeight: 600,
                 cursor: 'pointer',
-                fontSize: 14,
+                fontSize: 13,
               }}
             >
-              ↻ Rigenera
-            </button>
-            <button
-              style={{
-                flex: 1,
-                padding: '12px',
-                background: '#25d366',
-                color: 'white',
-                border: 'none',
-                borderRadius: 6,
-                fontWeight: 600,
-                cursor: 'pointer',
-                fontSize: 14,
-              }}
-            >
-              📱 Condividi su WhatsApp
+              ↻ Genera la giocata
             </button>
           </div>
         </div>
