@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { hashPassword, verifyPassword } from "@/lib/utils/password";
@@ -20,6 +20,7 @@ export async function POST(request: NextRequest) {
 
     if (action === "login") {
       // Login
+      const db = getDb();
       const user = await db
         .select()
         .from(users)
@@ -55,6 +56,7 @@ export async function POST(request: NextRequest) {
       });
     } else if (action === "register") {
       // Register
+      const db = getDb();
       const existingUser = await db
         .select()
         .from(users)
