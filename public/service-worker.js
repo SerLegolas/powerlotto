@@ -1,4 +1,4 @@
-const CACHE_NAME = "powerlotto-v1";
+const CACHE_NAME = "powerlotto-v2";
 const OFFLINE_URL = "/offline.html";
 
 const STATIC_ASSETS = [
@@ -87,7 +87,10 @@ self.addEventListener("fetch", (event) => {
             if (request.mode === "navigate") {
               return caches.match(OFFLINE_URL);
             }
-            return response;
+            return new Response("Resource unavailable while offline", {
+              status: 503,
+              statusText: "Service Unavailable",
+            });
           })
       );
     })
