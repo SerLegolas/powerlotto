@@ -121,6 +121,7 @@ export function DashboardComponent() {
   const router = useRouter();
   const autoRegenerateInitialized = useRef(false);
   const saveInFlightRef = useRef(false);
+  const drawsAutoRefreshDoneRef = useRef(false);
   const [plays, setPlays] = useState<Play[]>([]);
   const [user, setUser] = useState<{ id: string; email: string } | null>(null);
   const [authenticated, setAuthenticated] = useState(false);
@@ -155,6 +156,7 @@ export function DashboardComponent() {
     fetchDraws();
     // eslint-disable-next-line react-hooks/immutability
     fetchStats();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
   useEffect(() => {
@@ -208,6 +210,7 @@ export function DashboardComponent() {
     try {
       const response = await fetch('/api/draws?limit=500', { cache: 'no-store' });
       if (!response.ok) throw new Error('Failed to fetch draws');
+      const refreshTriggered = response.headers.get('x-draws-refresh-triggered') === '1';
 
       const data: Draw[] = await response.json();
       if (!data.length) return;
@@ -232,6 +235,15 @@ export function DashboardComponent() {
       }
 
       setLastDraw({ date: maxDate, byRuota });
+
+      // Se il server ha avviato il refresh in background, facciamo un solo refetch automatico.
+      if (refreshTriggered && !drawsAutoRefreshDoneRef.current) {
+        drawsAutoRefreshDoneRef.current = true;
+        setTimeout(() => {
+          void fetchDraws();
+          void fetchStats();
+        }, 5000);
+      }
     } catch (err) {
       console.error('Error fetching draws:', err);
     }

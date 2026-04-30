@@ -13,7 +13,10 @@ function triggerBackgroundFetchIfStale(allDraws: { date: string }[]) {
     fetchDraws().catch((err) =>
       console.error("[draws] background fetch failed:", err)
     );
+    return true;
   }
+
+  return false;
 }
 
 export async function GET(request: NextRequest) {
@@ -40,9 +43,11 @@ export async function GET(request: NextRequest) {
     }
 
     // Aggiorna in background se mancano le estrazioni di oggi
-    triggerBackgroundFetchIfStale(allDraws);
+    const refreshTriggered = triggerBackgroundFetchIfStale(allDraws);
 
-    return NextResponse.json(allDraws);
+    const response = NextResponse.json(allDraws);
+    response.headers.set("x-draws-refresh-triggered", refreshTriggered ? "1" : "0");
+    return response;
   } catch (error) {
     console.error("Draws error:", error);
     return NextResponse.json(
