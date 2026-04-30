@@ -1,8 +1,9 @@
 {
   "name": "PowerLotto",
   "short_name": "PowerLotto",
+  "id": "/",
   "description": "PWA per generare giocate Lotto intelligenti con MagicLotto, statistiche, storico e notifiche.",
-  "start_url": "/",
+  "start_url": "/login",
   "display": "standalone",
   "background_color": "#E6F3FF",
   "theme_color": "#FFD200",

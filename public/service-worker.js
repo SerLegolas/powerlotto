@@ -1,8 +1,8 @@
-const CACHE_NAME = "powerlotto-v2";
+const CACHE_NAME = "powerlotto-v3";
 const OFFLINE_URL = "/offline.html";
 
 const STATIC_ASSETS = [
-  "/",
+  "/login",
   "/offline.html",
   "/icons/icon-192.png",
   "/icons/icon-512.png",
@@ -144,13 +144,13 @@ self.addEventListener("notificationclick", (event) => {
     clients.matchAll({ type: "window" }).then((clientList) => {
       // Check if app window already exists
       for (const client of clientList) {
-        if (client.url === "/" && "focus" in client) {
+        if ((client.url === "/login" || client.url === "/") && "focus" in client) {
           return client.focus();
         }
       }
       // Otherwise open new window
       if (clients.openWindow) {
-        return clients.openWindow("/");
+        return clients.openWindow("/login");
       }
     })
   );
