@@ -3,7 +3,6 @@
   "devCommand": "npm run dev",
   "installCommand": "npm install",
   "framework": "nextjs",
-  "nodeVersion": "18.x",
   "env": [
     "TURSO_CONNECTION_URL",
     "TURSO_AUTH_TOKEN",
