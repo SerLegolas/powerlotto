@@ -37,20 +37,6 @@ function formatDate(value: string): string {
   });
 }
 
-function nextDrawDate(): string {
-  const drawDays = [2, 4, 6]; // martedì, giovedì, sabato
-  const now = new Date();
-  const today = now.getDay(); // 0=dom, 1=lun, ...
-  let daysAhead = drawDays
-    .map((d) => (d - today + 7) % 7)
-    .filter((d) => d > 0);
-  if (daysAhead.length === 0) daysAhead = drawDays.map((d) => (d - today + 7) % 7 || 7);
-  const minDays = Math.min(...daysAhead);
-  const next = new Date(now);
-  next.setDate(now.getDate() + minDays);
-  return next.toLocaleDateString('it-IT', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
-}
-
 function parseNumbers(numbersJson: string): number[] {
   try {
     const parsed = JSON.parse(numbersJson);
@@ -77,10 +63,98 @@ const quotaByType: Record<number, number> = {
   5: 6000000,
 };
 
+const DRAW_WEEK_DAYS = [2, 4, 6]; // mar, gio, sab
+const DRAW_CUTOFF_HOUR = 19;
+
+function ymdFromDateUTC(date: Date): string {
+  const y = date.getUTCFullYear();
+  const m = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(date.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function addDaysToYmd(ymd: string, days: number): string {
+  const [y, m, d] = ymd.split('-').map(Number);
+  if (!y || !m || !d) return ymd;
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() + days);
+  return ymdFromDateUTC(dt);
+}
+
+function weekdayFromYmd(ymd: string): number {
+  const [y, m, d] = ymd.split('-').map(Number);
+  if (!y || !m || !d) return 0;
+  return new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+}
+
+function parsePlayDateTimeToUtc(value: string): Date | null {
+  // SQLite salva spesso "YYYY-MM-DD HH:mm:ss" in UTC.
+  const normalized = value.includes('T') ? value : value.replace(' ', 'T');
+  const withZone = /Z$|[+-]\d{2}:\d{2}$/.test(normalized) ? normalized : `${normalized}Z`;
+  const dt = new Date(withZone);
+  return Number.isNaN(dt.getTime()) ? null : dt;
+}
+
+function getRomeDateParts(input: string): { ymd: string; hour: number; minute: number; second: number } | null {
+  const dt = parsePlayDateTimeToUtc(input);
+  if (!dt) return null;
+  const parts = new Intl.DateTimeFormat('it-IT', {
+    timeZone: 'Europe/Rome',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).formatToParts(dt);
+
+  const byType = Object.fromEntries(parts.map((p) => [p.type, p.value]));
+  const year = Number(byType.year);
+  const month = Number(byType.month);
+  const day = Number(byType.day);
+  const hour = Number(byType.hour);
+  const minute = Number(byType.minute);
+  const second = Number(byType.second);
+  if ([year, month, day, hour, minute, second].some((n) => !Number.isFinite(n))) return null;
+
+  return {
+    ymd: `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
+    hour,
+    minute,
+    second,
+  };
+}
+
+function getFirstEligibleDrawDate(createdAt: string): string {
+  const rome = getRomeDateParts(createdAt);
+  if (!rome) return createdAt.slice(0, 10);
+
+  const day = weekdayFromYmd(rome.ymd);
+  const isDrawDay = DRAW_WEEK_DAYS.includes(day);
+  const isAfterCutoff =
+    rome.hour > DRAW_CUTOFF_HOUR ||
+    (rome.hour === DRAW_CUTOFF_HOUR && (rome.minute > 0 || rome.second > 0));
+
+  if (isDrawDay && !isAfterCutoff) {
+    return rome.ymd;
+  }
+
+  for (let offset = 1; offset <= 7; offset++) {
+    const candidate = addDaysToYmd(rome.ymd, offset);
+    if (DRAW_WEEK_DAYS.includes(weekdayFromYmd(candidate))) {
+      return candidate;
+    }
+  }
+
+  return rome.ymd;
+}
+
 export default function StoricoGiocatePage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [drawsLoading, setDrawsLoading] = useState(true);
+  const [playsFilter, setPlaysFilter] = useState<'active' | 'all' | 'won'>('active');
   const [plays, setPlays] = useState<Play[]>([]);
   const [draws, setDraws] = useState<Draw[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -160,17 +234,21 @@ export default function StoricoGiocatePage() {
     if (!playNumbers.length || !play.colonne) return 0;
     const quota = quotaByType[play.colonne] ?? 0;
     if (!quota) return 0;
-    const playDateTs = new Date(play.createdAt).getTime();
+    const firstEligibleDrawDate = getFirstEligibleDrawDate(play.createdAt);
     const baseStake = Number(play.costo);
     if (!Number.isFinite(baseStake) || baseStake <= 0) return 0;
     return drawList.reduce((acc, draw) => {
-      const drawTs = new Date(draw.date).getTime();
-      if (Number.isFinite(playDateTs) && Number.isFinite(drawTs) && drawTs < playDateTs) return acc;
+      if (draw.date < firstEligibleDrawDate) return acc;
       const extracted = [draw.n1, draw.n2, draw.n3, draw.n4, draw.n5];
       const hits = playNumbers.filter((n) => extracted.includes(n)).length;
       if (hits >= play.colonne) return acc + quota * baseStake;
       return acc;
     }, 0);
+  };
+
+  const hasRelevantDraws = (play: Play, drawList: Draw[]): boolean => {
+    const firstEligibleDrawDate = getFirstEligibleDrawDate(play.createdAt);
+    return drawList.some((d) => d.date >= firstEligibleDrawDate);
   };
 
   const totalWins = useMemo(() => {
@@ -184,6 +262,15 @@ export default function StoricoGiocatePage() {
       .filter((play) => (play.confermata ?? 0) === 1)
       .reduce((acc, play) => acc + calcPlayWin(play, draws), 0);
   }, [plays, draws]);
+
+  const visiblePlays = useMemo(() => {
+    if (playsFilter === 'all') return plays;
+    if (drawsLoading) return plays;
+    if (playsFilter === 'won') {
+      return plays.filter((play) => calcPlayWin(play, draws) > 0);
+    }
+    return plays.filter((play) => !hasRelevantDraws(play, draws));
+  }, [plays, playsFilter, drawsLoading, draws]);
 
   return (
     <div style={{ minHeight: '100vh', background: '#f5f5f5', fontFamily: 'Arial, sans-serif' }}>
@@ -272,9 +359,58 @@ export default function StoricoGiocatePage() {
         </div>
 
         <div style={{ background: 'white', padding: '20px', borderRadius: 8, boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-          <h2 style={{ margin: '0 0 4px 0', fontSize: 16, fontWeight: 700, color: '#001f7f' }}>
-            Le Tue Giocate Salvate
-          </h2>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 4 }}>
+            <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#001f7f' }}>
+              Le Tue Giocate Salvate
+            </h2>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <button
+                onClick={() => setPlaysFilter('active')}
+                style={{
+                  border: playsFilter === 'active' ? '1px solid #0b3d91' : '1px solid #cfd8dc',
+                  background: playsFilter === 'active' ? '#0b3d91' : '#f6f8fa',
+                  color: playsFilter === 'active' ? 'white' : '#263238',
+                  borderRadius: 20,
+                  padding: '6px 12px',
+                  fontSize: 12,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                Attive
+              </button>
+              <button
+                onClick={() => setPlaysFilter('all')}
+                style={{
+                  border: playsFilter === 'all' ? '1px solid #0b3d91' : '1px solid #cfd8dc',
+                  background: playsFilter === 'all' ? '#0b3d91' : '#f6f8fa',
+                  color: playsFilter === 'all' ? 'white' : '#263238',
+                  borderRadius: 20,
+                  padding: '6px 12px',
+                  fontSize: 12,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                Tutte
+              </button>
+              <button
+                onClick={() => setPlaysFilter('won')}
+                style={{
+                  border: playsFilter === 'won' ? '1px solid #0b3d91' : '1px solid #cfd8dc',
+                  background: playsFilter === 'won' ? '#0b3d91' : '#f6f8fa',
+                  color: playsFilter === 'won' ? 'white' : '#263238',
+                  borderRadius: 20,
+                  padding: '6px 12px',
+                  fontSize: 12,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                Vinte
+              </button>
+            </div>
+          </div>
           <p style={{ margin: '0 0 12px 0', fontSize: 12, color: '#666' }}>
             Ordinate dalla piu recente alla piu vecchia
           </p>
@@ -291,15 +427,19 @@ export default function StoricoGiocatePage() {
             </div>
           )}
 
-          {!loading && !error && plays.length === 0 && (
+          {!loading && !error && visiblePlays.length === 0 && (
             <div style={{ background: 'white', padding: 20, borderRadius: 8, textAlign: 'center', color: '#666' }}>
-              Nessuna giocata salvata al momento.
+              {playsFilter === 'active'
+                ? 'Nessuna giocata attiva al momento.'
+                : playsFilter === 'won'
+                  ? 'Nessuna giocata vincente al momento.'
+                : 'Nessuna giocata salvata al momento.'}
             </div>
           )}
 
-          {!loading && !error && plays.length > 0 && (
+          {!loading && !error && visiblePlays.length > 0 && (
             <div style={{ display: 'grid', gap: 12 }}>
-              {plays.map((play) => {
+              {visiblePlays.map((play) => {
                 const numbers = parseNumbers(play.numbers);
                 const playType = playTypeLabel[play.colonne] ?? `${play.colonne} numeri`;
                 const costText = Number(play.costo).toLocaleString('it-IT', {
@@ -309,6 +449,8 @@ export default function StoricoGiocatePage() {
                 const colors = ['#0066cc', '#ffa500', '#ff6600', '#d32f2f', '#ffcc00'];
                 const playWin = drawsLoading ? null : calcPlayWin(play, draws);
                 const isWinner = playWin !== null && playWin > 0;
+                const hasDrawsToCheck = !drawsLoading && hasRelevantDraws(play, draws);
+                const firstEligibleDrawDate = getFirstEligibleDrawDate(play.createdAt);
                 const winText = playWin !== null
                   ? `€${playWin.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                   : null;
@@ -340,6 +482,24 @@ export default function StoricoGiocatePage() {
                       border: isWinner ? '2px solid #2e7d32' : '1px solid #eee',
                     }}
                   >
+                    <div
+                      style={{
+                        marginBottom: 10,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        padding: '4px 10px',
+                        borderRadius: 16,
+                        background: '#eef5ff',
+                        border: '1px solid #c8defa',
+                        color: '#0b3d91',
+                        fontSize: 11,
+                        fontWeight: 700,
+                      }}
+                    >
+                      <span>🗓️</span>
+                      <span>Estrazione del : {formatDate(firstEligibleDrawDate)}</span>
+                    </div>
                     <div style={{ marginBottom: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                         <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: isWinner ? '#1b5e20' : '#001f7f' }}>{playType}</p>
@@ -441,7 +601,11 @@ export default function StoricoGiocatePage() {
                       </div>
                     )}
                     {!drawsLoading && !isWinner && (
-                      <p style={{ margin: '8px 0 0 0', fontSize: 11, color: '#aaa' }}>Prossima estrazione: {nextDrawDate()}</p>
+                      <p style={{ margin: '8px 0 0 0', fontSize: 11, color: hasDrawsToCheck ? '#666' : '#aaa' }}>
+                        {hasDrawsToCheck
+                          ? '❌ Nessuna vincita nelle estrazioni controllate'
+                          : `⏳ In attesa estrazione dal ${formatDate(firstEligibleDrawDate)}`}
+                      </p>
                     )}
                   </article>
                 );

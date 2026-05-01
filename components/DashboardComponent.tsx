@@ -125,9 +125,13 @@ export function DashboardComponent() {
   const [plays, setPlays] = useState<Play[]>([]);
   const [user, setUser] = useState<{ id: string; email: string } | null>(null);
   const [authenticated, setAuthenticated] = useState(false);
+  const [playTab, setPlayTab] = useState<'magic' | 'manual'>('magic');
   const [selectedCity, setSelectedCity] = useState('Bari');
   const [numbersMode, setNumbersMode] = useState<'magic' | 'manual'>('magic');
   const [columns, setColumns] = useState(5);
+  const [manualColumns, setManualColumns] = useState(5);
+  const [manualInputNumbers, setManualInputNumbers] = useState<string[]>(['', '', '', '', '']);
+  const [manualValidationMessage, setManualValidationMessage] = useState<string | null>(null);
   const [stakeAmount, setStakeAmount] = useState(1);
   const [numeroOro, setNumeroOro] = useState(false);
   const [numeroOroValue, setNumeroOroValue] = useState<number | null>(null);
@@ -472,13 +476,96 @@ export function DashboardComponent() {
     setShowMaxWinModal(magicTotalWin > SINGLE_PLAY_MAX_WIN);
   }, [delayedNumbers, frequentNumbers, hotNumbers, calculateEstimatedTotalWin]);
 
-  const handleRegenerate = useCallback(() => {
-    if (numbersMode === 'magic') {
-      generateMagicNumbers();
+  const handleManualColumnsChange = useCallback((nextColumns: number) => {
+    setManualColumns(nextColumns);
+    setColumns(nextColumns);
+    setManualInputNumbers((prev) => {
+      const resized = Array.from({ length: nextColumns }, (_, idx) => prev[idx] ?? '');
+      return resized;
+    });
+    setGeneratedNumbers([]);
+    setSavePlayMessage(null);
+    setManualValidationMessage(null);
+  }, []);
+
+  const handleManualNumberInput = useCallback((index: number, value: string) => {
+    const sanitized = value.replace(/\D/g, '').slice(0, 2);
+    setManualInputNumbers((prev) => {
+      const next = [...prev];
+      next[index] = sanitized;
+      return next;
+    });
+    setGeneratedNumbers([]);
+    setSavePlayMessage(null);
+    setManualValidationMessage(null);
+  }, []);
+
+  const handleGenerateManualPlay = useCallback(() => {
+    const parsedNumbers = manualInputNumbers.map((v) => Number(v));
+    const hasEmpty = manualInputNumbers.some((v) => v.trim() === '');
+
+    if (hasEmpty) {
+      setManualValidationMessage('Compila tutti i blocchi numerici prima di confermare la giocata.');
       return;
     }
-    generateManualNumbers();
-  }, [numbersMode, generateMagicNumbers, generateManualNumbers]);
+
+    const outOfRange = parsedNumbers.find((n) => !Number.isInteger(n) || n < 1 || n > 90);
+    if (outOfRange !== undefined) {
+      setManualValidationMessage('Ogni numero deve essere compreso tra 1 e 90.');
+      return;
+    }
+
+    const uniqueCount = new Set(parsedNumbers).size;
+    if (uniqueCount !== parsedNumbers.length) {
+      setManualValidationMessage('Non puoi inserire numeri duplicati nella stessa giocata.');
+      return;
+    }
+
+    const ordered = [...parsedNumbers].sort((a, b) => a - b);
+    setColumns(manualColumns);
+    setNumbersMode('manual');
+    setNumeroOro(false);
+    setNumeroOroValue(null);
+    setGeneratedNumbers(ordered);
+    setManualValidationMessage(null);
+    setSavePlayMessage(null);
+
+    const manualTotalWin = calcRawWinBySelection(manualColumns, stakeAmount);
+    setShowMaxWinModal(manualTotalWin > SINGLE_PLAY_MAX_WIN);
+  }, [manualColumns, manualInputNumbers, stakeAmount]);
+
+  const handleRegenerate = useCallback(() => {
+    if (playTab === 'magic') {
+      if (numbersMode === 'magic') {
+        generateMagicNumbers();
+        return;
+      }
+      generateManualNumbers();
+      return;
+    }
+    handleGenerateManualPlay();
+  }, [playTab, numbersMode, generateMagicNumbers, generateManualNumbers, handleGenerateManualPlay]);
+
+  const switchToMagicTab = useCallback(() => {
+    setPlayTab('magic');
+    setNumbersMode('magic');
+    setStakeAmount(1);
+    setNumeroOro(false);
+    setNumeroOroValue(null);
+    setGeneratedNumbers([]);
+    setSavePlayMessage(null);
+    setManualValidationMessage(null);
+  }, []);
+
+  const switchToManualTab = useCallback(() => {
+    setPlayTab('manual');
+    setNumbersMode('manual');
+    setNumeroOro(false);
+    setNumeroOroValue(null);
+    setGeneratedNumbers([]);
+    setSavePlayMessage(null);
+    setManualValidationMessage(null);
+  }, []);
 
   const estimatedTotalWin = (authenticated && generatedNumbers.length > 0)
     ? calculateEstimatedTotalWin()
@@ -676,101 +763,241 @@ export function DashboardComponent() {
 
         {/* MagicLotto */}
         <div style={{ background: 'white', padding: '20px', borderRadius: 8, boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-          <div style={{ background: 'linear-gradient(90deg, #0066cc 0%, #004c99 100%)', color: 'white', padding: '12px 16px', marginBottom: 16, borderRadius: 6 }}>
-            <p style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>✨ MagicLotto</p>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+            <button
+              onClick={switchToMagicTab}
+              style={{
+                padding: '8px 14px',
+                borderRadius: 6,
+                border: playTab === 'magic' ? '1px solid #004c99' : '1px solid #cfd8dc',
+                background: playTab === 'magic' ? '#0066cc' : '#f6f8fa',
+                color: playTab === 'magic' ? 'white' : '#263238',
+                fontWeight: 700,
+                fontSize: 13,
+                cursor: 'pointer',
+              }}
+            >
+              ✨ Magic Lotto
+            </button>
+            <button
+              onClick={switchToManualTab}
+              style={{
+                padding: '8px 14px',
+                borderRadius: 6,
+                border: playTab === 'manual' ? '1px solid #004c99' : '1px solid #cfd8dc',
+                background: playTab === 'manual' ? '#0066cc' : '#f6f8fa',
+                color: playTab === 'manual' ? 'white' : '#263238',
+                fontWeight: 700,
+                fontSize: 13,
+                cursor: 'pointer',
+              }}
+            >
+              ✏️ Giocata manuale
+            </button>
           </div>
 
-          <div style={{ marginBottom: 16 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontWeight: 600 }}>Numeri giocata: </span>
-                <select
-                  value={numbersMode === 'magic' ? 'magic' : String(columns)}
+          {playTab === 'magic' && (
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontWeight: 600 }}>Numeri giocata: </span>
+                  <select
+                    value={numbersMode === 'magic' ? 'magic' : String(columns)}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (value === 'magic') {
+                        setNumbersMode('magic');
+                        setStakeAmount(1);
+                        setNumeroOro(false);
+                        setNumeroOroValue(null);
+                      } else {
+                        setNumbersMode('manual');
+                        setColumns(Number(value));
+                      }
+                    }}
+                    style={{ padding: '8px', border: '1px solid #ccc', borderRadius: 4, fontSize: 14 }}
+                  >
+                    {[
+                      { value: 'magic', label: 'Magic' },
+                      { value: '1', label: '1' },
+                      { value: '2', label: '2' },
+                      { value: '3', label: '3' },
+                      { value: '4', label: '4' },
+                      { value: '5', label: '5' },
+                    ].map((n) => (
+                      <option key={n.value} value={n.value}>
+                        {n.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontWeight: 600 }}>Importo: </span>
+                  <select
+                    value={stakeAmount}
+                    onChange={(e) => setStakeAmount(Number(e.target.value))}
+                    disabled={numbersMode === 'magic'}
+                    style={{ padding: '8px', border: '1px solid #ccc', borderRadius: 4, fontSize: 14 }}
+                  >
+                    {[
+                      { value: 1, label: '€1' },
+                      { value: 2, label: '€2' },
+                      { value: 5, label: '€5' },
+                      { value: 10, label: '€10' },
+                      { value: 20, label: '€20' },
+                      { value: 50, label: '€50' },
+                      { value: 100, label: '€100' },
+                      { value: 200, label: '€200' },
+                    ].map((v) => (
+                      <option key={v.value} value={v.value}>
+                        {v.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              {numbersMode === 'magic' && (
+                <p style={{ margin: '0 0 8px 0', fontSize: 12, color: '#666' }}>
+                  Modalita Magic attiva: numeri giocata casuali (1-5) e importo fisso €1.
+                </p>
+              )}
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <input
+                  type="checkbox"
+                  checked={numeroOro}
+                  disabled={!numeroOroEligible || numbersMode === 'magic'}
                   onChange={(e) => {
-                    const value = e.target.value;
-                    if (value === 'magic') {
-                      setNumbersMode('magic');
-                      setStakeAmount(1);
-                      setNumeroOro(false);
-                      setNumeroOroValue(null);
+                    const checked = e.target.checked;
+                    setNumeroOro(checked);
+                    if (checked && columns >= 2 && columns <= 4) {
+                      setNumeroOroValue(Math.floor(Math.random() * 90) + 1);
                     } else {
-                      setNumbersMode('manual');
-                      setColumns(Number(value));
+                      setNumeroOroValue(null);
                     }
                   }}
-                  style={{ padding: '8px', border: '1px solid #ccc', borderRadius: 4, fontSize: 14 }}
-                >
-                  {[
-                    { value: 'magic', label: 'Magic' },
-                    { value: '1', label: '1' },
-                    { value: '2', label: '2' },
-                    { value: '3', label: '3' },
-                    { value: '4', label: '4' },
-                    { value: '5', label: '5' },
-                  ].map((n) => (
-                    <option key={n.value} value={n.value}>
-                      {n.label}
-                    </option>
-                  ))}
-                </select>
+                />
+                <span style={{ fontWeight: 600, color: (numeroOroEligible && numbersMode !== 'magic') ? '#001f7f' : '#999' }}>
+                  Numero Oro
+                </span>
               </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontWeight: 600 }}>Importo: </span>
-                <select
-                  value={stakeAmount}
-                  onChange={(e) => setStakeAmount(Number(e.target.value))}
-                  disabled={numbersMode === 'magic'}
-                  style={{ padding: '8px', border: '1px solid #ccc', borderRadius: 4, fontSize: 14 }}
-                >
-                  {[
-                    { value: 1, label: '€1' },
-                    { value: 2, label: '€2' },
-                    { value: 5, label: '€5' },
-                    { value: 10, label: '€10' },
-                    { value: 20, label: '€20' },
-                    { value: 50, label: '€50' },
-                    { value: 100, label: '€100' },
-                    { value: 200, label: '€200' },
-                  ].map((v) => (
-                    <option key={v.value} value={v.value}>
-                      {v.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            {numbersMode === 'magic' && (
-              <p style={{ margin: '0 0 8px 0', fontSize: 12, color: '#666' }}>
-                Modalita Magic attiva: numeri giocata casuali (1-5) e importo fisso €1.
+              <p style={{ margin: '6px 0 0 0', fontSize: 12, color: '#666' }}>
+                Opzione disponibile solo con 2, 3 o 4 numeri giocata.
               </p>
-            )}
-            <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <input
-                type="checkbox"
-                checked={numeroOro}
-                disabled={!numeroOroEligible || numbersMode === 'magic'}
-                onChange={(e) => {
-                  const checked = e.target.checked;
-                  setNumeroOro(checked);
-                  if (checked && columns >= 2 && columns <= 4) {
-                    setNumeroOroValue(Math.floor(Math.random() * 90) + 1);
-                  } else {
-                    setNumeroOroValue(null);
-                  }
-                }}
-              />
-              <span style={{ fontWeight: 600, color: (numeroOroEligible && numbersMode !== 'magic') ? '#001f7f' : '#999' }}>
-                Numero Oro
-              </span>
-            </label>
-            <p style={{ margin: '6px 0 0 0', fontSize: 12, color: '#666' }}>
-              Opzione disponibile solo con 2, 3 o 4 numeri giocata.
-            </p>
-          </div>
+            </div>
+          )}
+
+          {playTab === 'manual' && (
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', marginBottom: 12 }}>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <span style={{ fontWeight: 600 }}>Numeri giocata</span>
+                  <select
+                    value={manualColumns}
+                    onChange={(e) => handleManualColumnsChange(Number(e.target.value))}
+                    style={{ padding: '8px', border: '1px solid #ccc', borderRadius: 4, fontSize: 14 }}
+                  >
+                    {[1, 2, 3, 4, 5].map((n) => (
+                      <option key={n} value={n}>{n}</option>
+                    ))}
+                  </select>
+                </label>
+
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <span style={{ fontWeight: 600 }}>Ruota</span>
+                  <select
+                    value={selectedCity}
+                    onChange={(e) => setSelectedCity(e.target.value)}
+                    style={{ padding: '8px', border: '1px solid #ccc', borderRadius: 4, fontSize: 14 }}
+                  >
+                    {allWheels.map((wheel) => (
+                      <option key={wheel} value={wheel}>{wheel}</option>
+                    ))}
+                  </select>
+                </label>
+
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <span style={{ fontWeight: 600 }}>Importo</span>
+                  <select
+                    value={stakeAmount}
+                    onChange={(e) => setStakeAmount(Number(e.target.value))}
+                    style={{ padding: '8px', border: '1px solid #ccc', borderRadius: 4, fontSize: 14 }}
+                  >
+                    {[
+                      { value: 1, label: '€1' },
+                      { value: 2, label: '€2' },
+                      { value: 5, label: '€5' },
+                      { value: 10, label: '€10' },
+                      { value: 20, label: '€20' },
+                      { value: 50, label: '€50' },
+                      { value: 100, label: '€100' },
+                      { value: 200, label: '€200' },
+                    ].map((v) => (
+                      <option key={v.value} value={v.value}>
+                        {v.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              <p style={{ margin: '0 0 10px 0', fontSize: 12, color: '#666' }}>
+                Inserisci {manualColumns} numeri distinti da 1 a 90.
+              </p>
+
+              <div style={{ display: 'grid', gap: 8, gridTemplateColumns: 'repeat(auto-fit, minmax(90px, 1fr))' }}>
+                {manualInputNumbers.map((value, idx) => {
+                  const num = Number(value);
+                  const isEmpty = value.trim() === '';
+                  const outOfRange = !isEmpty && (!Number.isInteger(num) || num < 1 || num > 90);
+                  const isDuplicate = !isEmpty && manualInputNumbers.some(
+                    (other, otherIdx) => otherIdx !== idx && other.trim() !== '' && Number(other) === num
+                  );
+                  const hasError = outOfRange || isDuplicate;
+                  const errorLabel = outOfRange ? 'Fuori range' : isDuplicate ? 'Duplicato' : '';
+                  return (
+                    <label key={idx} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      <span style={{ fontSize: 11, color: hasError ? '#c62828' : '#4e5969', fontWeight: 600 }}>
+                        Numero {idx + 1}
+                      </span>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={value}
+                        onChange={(e) => handleManualNumberInput(idx, e.target.value)}
+                        placeholder="1-90"
+                        style={{
+                          padding: '8px',
+                          border: hasError ? '2px solid #c62828' : '1px solid #ccc',
+                          borderRadius: 4,
+                          fontSize: 14,
+                          textAlign: 'center',
+                          background: hasError ? '#fff5f5' : 'white',
+                          outline: 'none',
+                        }}
+                      />
+                      {hasError && (
+                        <span style={{ fontSize: 10, color: '#c62828', fontWeight: 600, textAlign: 'center', lineHeight: 1.2 }}>
+                          {errorLabel}
+                        </span>
+                      )}
+                    </label>
+                  );
+                })}
+              </div>
+
+              {manualValidationMessage && (
+                <p style={{ margin: '10px 0 0 0', fontSize: 12, color: '#c62828', fontWeight: 600 }}>
+                  {manualValidationMessage}
+                </p>
+              )}
+            </div>
+          )}
 
           {generatedNumbers.length > 0 && (
             <div style={{ background: '#f0f4ff', padding: '16px', borderRadius: 8, marginBottom: 16 }}>
-              <p style={{ margin: '0 0 12px 0', fontWeight: 600, color: '#001f7f' }}>Magic Giocata:</p>
+              <p style={{ margin: '0 0 12px 0', fontWeight: 600, color: '#001f7f' }}>
+                {playTab === 'magic' ? 'Magic Giocata:' : 'Giocata manuale:'}
+              </p>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'nowrap', justifyContent: 'center' }}>
                 {generatedNumbers.map((num, idx) => (
                   <span
@@ -900,7 +1127,7 @@ export function DashboardComponent() {
                 fontSize: 13,
               }}
             >
-              ↻ Genera la giocata
+              {playTab === 'magic' ? '↻ Genera la giocata' : 'Conferma giocata manuale'}
             </button>
           </div>
         </div>
