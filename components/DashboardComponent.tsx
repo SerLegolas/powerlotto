@@ -143,6 +143,8 @@ export function DashboardComponent() {
   const [showMaxWinModal, setShowMaxWinModal] = useState(false);
   const [isSavingPlay, setIsSavingPlay] = useState(false);
   const [savePlayMessage, setSavePlayMessage] = useState<string | null>(null);
+  const [notifyWins, setNotifyWins] = useState<boolean | null>(null);
+  const [notifyWinsLoading, setNotifyWinsLoading] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem('authToken');
@@ -160,6 +162,8 @@ export function DashboardComponent() {
     fetchDraws();
     // eslint-disable-next-line react-hooks/immutability
     fetchStats();
+    // eslint-disable-next-line react-hooks/immutability
+    fetchNotifyPreference();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
@@ -323,6 +327,40 @@ export function DashboardComponent() {
     localStorage.removeItem('authToken');
     router.push('/login');
   };
+
+  async function fetchNotifyPreference() {
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) return;
+      const res = await fetch('/api/push/preferences', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      setNotifyWins(Boolean(data.notifyWins));
+    } catch {
+      // ignora, preferenza non critica
+    }
+  }
+
+  async function handleToggleNotifyWins() {
+    const token = localStorage.getItem('authToken');
+    if (!token || notifyWinsLoading) return;
+    setNotifyWinsLoading(true);
+    const next = !notifyWins;
+    try {
+      const res = await fetch('/api/push/preferences', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ notifyWins: next }),
+      });
+      if (res.ok) setNotifyWins(next);
+    } catch {
+      // ignora, riprova al prossimo tentativo
+    } finally {
+      setNotifyWinsLoading(false);
+    }
+  }
 
   const handleSavePlay = async () => {
     if (!generatedNumbers.length || isSavingPlay || saveInFlightRef.current) return;
@@ -669,10 +707,29 @@ export function DashboardComponent() {
       {/* Main Content */}
       <div style={{ maxWidth: 1200, margin: '0 auto', padding: '24px' }}>
         {/* Welcome */}
-        <div style={{ background: 'white', padding: '20px', borderRadius: 8, marginBottom: 24, boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+        <div style={{ background: 'white', padding: '20px', borderRadius: 8, marginBottom: 24, boxShadow: '0 1px 3px rgba(0,0,0,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
           <p style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#001f7f' }}>
             Benvenuto, {userName}!
           </p>
+          {notifyWins !== null && (
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: notifyWinsLoading ? 'wait' : 'pointer', userSelect: 'none' }}>
+              <span style={{ fontSize: 13, color: '#555' }}>Notifiche vincite</span>
+              <button
+                onClick={handleToggleNotifyWins}
+                disabled={notifyWinsLoading}
+                aria-label={notifyWins ? 'Disattiva notifiche vincite' : 'Attiva notifiche vincite'}
+                style={{
+                  width: 44, height: 24, borderRadius: 12, border: 'none', cursor: notifyWinsLoading ? 'wait' : 'pointer',
+                  background: notifyWins ? '#0066cc' : '#ccc', position: 'relative', transition: 'background 0.2s', padding: 0, flexShrink: 0,
+                }}
+              >
+                <span style={{
+                  position: 'absolute', top: 3, left: notifyWins ? 23 : 3, width: 18, height: 18,
+                  borderRadius: '50%', background: 'white', transition: 'left 0.2s', display: 'block', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                }} />
+              </button>
+            </label>
+          )}
         </div>
 
         {/* Ultime Estrazioni */}

@@ -62,3 +62,25 @@ export const pushSubscriptions = sqliteTable("push_subscriptions", {
   auth: text("auth").notNull(),
   createdAt: text("created_at").default(sql`CURRENT_TIMESTAMP`),
 });
+
+// Push preferences table (per-user notification settings)
+export const pushPreferences = sqliteTable("push_preferences", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  notifyWins: integer("notify_wins").notNull().default(1),
+  createdAt: text("created_at").default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  uniqueIndex("push_preferences_user_idx").on(table.userId),
+]);
+
+// Push notifications log for idempotency
+export const pushNotificationLogs = sqliteTable("push_notification_logs", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  drawId: integer("draw_id").notNull(),
+  ruota: text("ruota").notNull(),
+  sentAt: text("sent_at").default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  uniqueIndex("push_notification_logs_user_draw_idx").on(table.userId, table.drawId),
+]);

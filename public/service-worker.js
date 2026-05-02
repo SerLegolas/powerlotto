@@ -113,12 +113,13 @@ self.addEventListener("push", (event) => {
     body: data.body || "PowerLotto - Estratti Lotto",
     icon: data.icon || "/icons/icon-192.png",
     badge: "/icons/icon-192.png",
-    tag: "powerlotto-notification",
-    requireInteraction: false,
+    tag: data.data?.kind === "winning" ? "powerlotto-win" : "powerlotto-notification",
+    requireInteraction: data.data?.kind === "winning",
+    data: data.data || {},
     actions: [
       {
         action: "open",
-        title: "Apri",
+        title: "Vai alla dashboard",
       },
       {
         action: "close",
@@ -140,17 +141,20 @@ self.addEventListener("notificationclick", (event) => {
     return;
   }
 
+  const notificationData = event.notification.data || {};
+  const targetUrl = notificationData.kind === "winning" ? "/dashboard/storico" : "/dashboard";
+
   event.waitUntil(
-    clients.matchAll({ type: "window" }).then((clientList) => {
-      // Check if app window already exists
+    clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
       for (const client of clientList) {
-        if ((client.url === "/login" || client.url === "/") && "focus" in client) {
+        const clientPath = new URL(client.url).pathname;
+        if (clientPath.startsWith("/dashboard") && "focus" in client) {
+          client.navigate(targetUrl);
           return client.focus();
         }
       }
-      // Otherwise open new window
       if (clients.openWindow) {
-        return clients.openWindow("/login");
+        return clients.openWindow(targetUrl);
       }
     })
   );

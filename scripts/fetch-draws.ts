@@ -44,6 +44,7 @@ type FetchSummary = {
   insertedDraws: number;
   updatedStats: number;
   drawDate: string;
+  insertedEntries: ParsedDraw[];
 };
 
 function normalizeText(value: string): string {
@@ -116,8 +117,8 @@ function extractDrawsFromPage(html: string): ParsedDraw[] {
   return results;
 }
 
-async function upsertDraws(parsedDraws: ParsedDraw[]): Promise<number> {
-  let inserted = 0;
+async function upsertDraws(parsedDraws: ParsedDraw[]): Promise<ParsedDraw[]> {
+  const inserted: ParsedDraw[] = [];
 
   for (const draw of parsedDraws) {
     const existing = await db
@@ -140,7 +141,7 @@ async function upsertDraws(parsedDraws: ParsedDraw[]): Promise<number> {
       n5: draw.numbers[4],
     });
 
-    inserted += 1;
+    inserted.push(draw);
   }
 
   return inserted;
@@ -225,13 +226,14 @@ export async function fetchDraws(): Promise<FetchSummary> {
     throw new Error("No draws parsed from live source");
   }
 
-  const insertedDraws = await upsertDraws(parsedDraws);
+  const insertedEntries = await upsertDraws(parsedDraws);
   const updatedStats = await recomputeStats();
 
   return {
-    insertedDraws,
+    insertedDraws: insertedEntries.length,
     updatedStats,
     drawDate: parsedDraws[0].date,
+    insertedEntries,
   };
 }
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchDraws } from "@/scripts/fetch-draws";
+import { notifyWinningUsersForDraws } from "@/lib/push/winnings";
 
 /**
  * Cron job endpoint for Vercel
@@ -27,12 +28,25 @@ export async function GET(request: NextRequest) {
     console.log("🎰 Starting cron job: fetch lottery draws");
 
     const summary = await fetchDraws();
+    let notifications:
+      | Awaited<ReturnType<typeof notifyWinningUsersForDraws>>
+      | { error: string };
+
+    try {
+      notifications = await notifyWinningUsersForDraws(summary.insertedEntries);
+    } catch (error) {
+      console.error("⚠️ Notifications processing failed:", error);
+      notifications = {
+        error: error instanceof Error ? error.message : "Unknown notifications error",
+      };
+    }
 
     return NextResponse.json(
       {
         success: true,
         message: "Lottery draws fetched and processed successfully",
         summary,
+        notifications,
       },
       { status: 200 }
     );
