@@ -1,0 +1,7 @@
+#!/bin/sh
+
+set -e
+
+echo "[pre-commit] Sync build version"
+npm run version:sync
+git add public/service-worker.js public/build-version.json lib/generated/build-version.ts

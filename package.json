@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev --webpack",
+    "version:sync": "node scripts/update-sw-version.mjs",
+    "hooks:install": "git config core.hooksPath .githooks",
     "prebuild": "node scripts/update-sw-version.mjs",
     "build": "next build",
     "start": "next start",
