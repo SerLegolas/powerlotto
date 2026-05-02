@@ -42,7 +42,27 @@ export async function POST(request: NextRequest) {
       .limit(1);
 
     if (existing.length > 0) {
-      return NextResponse.json(existing[0]);
+      const current = existing[0];
+
+      if (
+        current.userId !== payload.userId ||
+        current.p256dh !== p256dh ||
+        current.auth !== auth
+      ) {
+        const updated = await db
+          .update(pushSubscriptions)
+          .set({
+            userId: payload.userId,
+            p256dh,
+            auth,
+          })
+          .where(eq(pushSubscriptions.endpoint, endpoint))
+          .returning();
+
+        return NextResponse.json(updated[0]);
+      }
+
+      return NextResponse.json(current);
     }
 
     // Create new subscription

@@ -38,10 +38,28 @@ export function ServiceWorkerRegister() {
         Notification.requestPermission();
     }
 
-    void subscribeToPushNotifications();
+    // Ritenta per un breve periodo: in alcuni flussi il token arriva dopo il mount.
+    let syncCompleted = false;
+    let attempts = 0;
+    const maxAttempts = 20;
+
+    const syncPush = async () => {
+      if (syncCompleted || attempts >= maxAttempts) return;
+      attempts += 1;
+      const done = await subscribeToPushNotifications();
+      if (done) {
+        syncCompleted = true;
+      }
+    };
+
+    void syncPush();
+    const intervalId = window.setInterval(() => {
+      void syncPush();
+    }, 3000);
 
     return () => {
       navigator.serviceWorker.removeEventListener("controllerchange", handleControllerChange);
+      window.clearInterval(intervalId);
     };
   }, []);
 
@@ -111,17 +129,17 @@ async function fetchLatestBuildVersion(): Promise<string | null> {
   }
 }
 
-async function subscribeToPushNotifications() {
+async function subscribeToPushNotifications(): Promise<boolean> {
   try {
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
       console.log("Push notifications not supported");
-      return;
+      return true;
     }
 
     const token = localStorage.getItem('authToken');
     if (!token) {
       // Evita subscription anonime non associabili a un utente.
-      return;
+      return false;
     }
 
     const registration = await navigator.serviceWorker.ready;
@@ -130,14 +148,14 @@ async function subscribeToPushNotifications() {
     if (subscription) {
       await sendSubscriptionToServer(subscription, token);
       console.log("✅ Existing push subscription synced");
-      return;
+      return true;
     }
 
     // Get VAPID public key
     const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
     if (!vapidPublicKey) {
       console.warn("VAPID public key not configured");
-      return;
+      return true;
     }
 
     const convertedVapidKey = urlBase64ToUint8Array(vapidPublicKey);
@@ -149,8 +167,10 @@ async function subscribeToPushNotifications() {
 
     await sendSubscriptionToServer(newSubscription, token);
     console.log("✅ Push notifications subscribed");
+    return true;
   } catch (error) {
     console.error("❌ Push subscription failed:", error);
+    return false;
   }
 }
 
