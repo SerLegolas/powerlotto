@@ -1,5 +1,5 @@
-const APP_VERSION = "0.1.0-20260502-132207";
-const CACHE_NAME = "powerlotto-v0-1-0-20260502-132207";
+const APP_VERSION = "0.1.0-20260502-135034";
+const CACHE_NAME = "powerlotto-v0-1-0-20260502-135034";
 const OFFLINE_URL = "/offline.html";
 
 const STATIC_ASSETS = [
