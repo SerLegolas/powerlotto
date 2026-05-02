@@ -1,4 +1,5 @@
-const CACHE_NAME = "powerlotto-v1777556349719";
+const APP_VERSION = "0.1.0-20260502-131312";
+const CACHE_NAME = "powerlotto-v0-1-0-20260502-131312";
 const OFFLINE_URL = "/offline.html";
 
 const STATIC_ASSETS = [
@@ -21,9 +22,15 @@ self.addEventListener("install", (event) => {
   self.skipWaiting();
 });
 
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
+});
+
 // Activate event - clean up old caches
 self.addEventListener("activate", (event) => {
-  console.log("🚀 Service Worker activating...");
+  console.log("🚀 Service Worker activating...", APP_VERSION);
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
@@ -34,9 +41,8 @@ self.addEventListener("activate", (event) => {
           }
         })
       );
-    })
+    }).then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
 // Fetch event - network first, fallback to cache

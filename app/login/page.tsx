@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { LoginForm } from "@/components/LoginForm";
+import { BUILD_VERSION } from "@/lib/generated/build-version";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -23,6 +24,7 @@ export default function LoginPage() {
         justifyContent: "center",
         padding: "30px 10px",
         minHeight: "100vh",
+        position: "relative",
       }}
     >
       <div style={{ width: "100%", maxWidth: 420 }}>
@@ -106,6 +108,21 @@ export default function LoginPage() {
 
 
         </div>
+      </div>
+      <div
+        style={{
+          position: "absolute",
+          left: 0,
+          right: 0,
+          bottom: 12,
+          textAlign: "center",
+          fontSize: 11,
+          letterSpacing: "0.08em",
+          color: "rgba(255, 228, 138, 0.82)",
+          textTransform: "uppercase",
+        }}
+      >
+        Versione {BUILD_VERSION}
       </div>
     </div>
   );
