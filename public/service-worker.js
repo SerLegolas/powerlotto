@@ -49,6 +49,11 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  // Skip non-http(s) schemes (e.g. chrome-extension://)
+  if (!url.protocol.startsWith("http")) {
+    return;
+  }
+
   // API requests - network first
   if (url.pathname.startsWith("/api/")) {
     event.respondWith(
@@ -116,16 +121,6 @@ self.addEventListener("push", (event) => {
     tag: data.data?.kind === "winning" ? "powerlotto-win" : "powerlotto-notification",
     requireInteraction: data.data?.kind === "winning",
     data: data.data || {},
-    actions: [
-      {
-        action: "open",
-        title: "Vai alla dashboard",
-      },
-      {
-        action: "close",
-        title: "Chiudi",
-      },
-    ],
   };
 
   event.waitUntil(self.registration.showNotification(data.title, options));
@@ -133,28 +128,25 @@ self.addEventListener("push", (event) => {
 
 // Handle notification clicks
 self.addEventListener("notificationclick", (event) => {
-  console.log("👆 Notification clicked:", event.action);
+  console.log("👆 Notification clicked");
 
   event.notification.close();
 
-  if (event.action === "close") {
-    return;
-  }
-
   const notificationData = event.notification.data || {};
-  const targetUrl = notificationData.kind === "winning" ? "/dashboard/storico" : "/dashboard";
+  const targetPath = notificationData.kind === "winning" ? "/dashboard/storico" : "/dashboard";
+  const absoluteTargetUrl = new URL(targetPath, self.location.origin).href;
 
   event.waitUntil(
     clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
       for (const client of clientList) {
         const clientPath = new URL(client.url).pathname;
         if (clientPath.startsWith("/dashboard") && "focus" in client) {
-          client.navigate(targetUrl);
+          client.navigate(absoluteTargetUrl);
           return client.focus();
         }
       }
       if (clients.openWindow) {
-        return clients.openWindow(targetUrl);
+        return clients.openWindow(absoluteTargetUrl);
       }
     })
   );
