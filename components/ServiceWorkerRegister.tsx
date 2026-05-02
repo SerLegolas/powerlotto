@@ -118,11 +118,18 @@ async function subscribeToPushNotifications() {
       return;
     }
 
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      // Evita subscription anonime non associabili a un utente.
+      return;
+    }
+
     const registration = await navigator.serviceWorker.ready;
     const subscription = await registration.pushManager.getSubscription();
 
     if (subscription) {
-      console.log("Already subscribed to push notifications");
+      await sendSubscriptionToServer(subscription, token);
+      console.log("✅ Existing push subscription synced");
       return;
     }
 
@@ -140,29 +147,28 @@ async function subscribeToPushNotifications() {
       applicationServerKey: convertedVapidKey as BufferSource,
     });
 
-    // Send subscription to server
-    const token = localStorage.getItem('authToken');
-    if (token) {
-      const subscriptionJSON = newSubscription.toJSON() as { endpoint: string; keys: Record<string, string> };
-      
-      await fetch('/api/push/subscribe', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          endpoint: newSubscription.endpoint,
-          p256dh: subscriptionJSON.keys?.p256dh || '',
-          auth: subscriptionJSON.keys?.auth || '',
-        }),
-      });
-
-      console.log("✅ Push notifications subscribed");
-    }
+    await sendSubscriptionToServer(newSubscription, token);
+    console.log("✅ Push notifications subscribed");
   } catch (error) {
     console.error("❌ Push subscription failed:", error);
   }
+}
+
+async function sendSubscriptionToServer(subscription: PushSubscription, token: string) {
+  const subscriptionJSON = subscription.toJSON() as { endpoint: string; keys: Record<string, string> };
+
+  await fetch('/api/push/subscribe', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      endpoint: subscription.endpoint,
+      p256dh: subscriptionJSON.keys?.p256dh || '',
+      auth: subscriptionJSON.keys?.auth || '',
+    }),
+  });
 }
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
