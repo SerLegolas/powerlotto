@@ -12,6 +12,7 @@ export const users = sqliteTable("users", {
   id: text("id").primaryKey(),
   email: text("email").unique().notNull(),
   passwordHash: text("password_hash").notNull(),
+  role: text("role").notNull().default("user"),
   createdAt: text("created_at").default(sql`CURRENT_TIMESTAMP`),
 });
 
@@ -84,3 +85,28 @@ export const pushNotificationLogs = sqliteTable("push_notification_logs", {
 }, (table) => [
   uniqueIndex("push_notification_logs_user_draw_idx").on(table.userId, table.drawId),
 ]);
+
+// Push notification settings for admin-managed messages
+export const pushNotificationSettings = sqliteTable("push_notification_settings", {
+  id: text("id").primaryKey(),
+  enabled: integer("enabled").notNull().default(1),
+  mode: text("mode").notNull().default("scheduled"),
+  titleTemplate: text("title_template").notNull().default("PowerLotto Notification"),
+  bodyTemplate: text("body_template").notNull().default("Hai un nuovo aggiornamento PowerLotto."),
+  createdAt: text("created_at").default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const pushNotificationSchedules = sqliteTable("push_notification_schedules", {
+  id: text("id").primaryKey(),
+  label: text("label").notNull(),
+  cronExpression: text("cron_expression").notNull().default("0 * * * *"),
+  time: text("time"),
+  active: integer("active").notNull().default(1),
+  targetType: text("target_type").notNull().default("all"),
+  targetUserIds: text("target_user_ids").notNull().default("[]"),
+  titleTemplate: text("title_template").notNull().default("PowerLotto Notification"),
+  bodyTemplate: text("body_template").notNull().default("Hai un nuovo aggiornamento PowerLotto."),
+  createdAt: text("created_at").default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").default(sql`CURRENT_TIMESTAMP`),
+});
