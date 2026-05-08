@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { verifyAdminToken } from "./jwt";
+import { verifyAdminToken } from "@/lib/utils/jwt";
 
 export function getAuthToken(request: NextRequest): string | null {
   const authHeader = request.headers.get("authorization");
