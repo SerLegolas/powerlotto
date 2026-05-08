@@ -11,7 +11,18 @@ export default function LoginPage() {
   useEffect(() => {
     const token = localStorage.getItem("authToken");
     if (token) {
-      router.replace("/dashboard");
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        // Se il token non ha il campo role, rimuovilo e forza nuovo login
+        if (!payload?.role) {
+          localStorage.removeItem("authToken");
+          return;
+        }
+        const path = payload.role === 'admin' ? '/amministrazione' : '/dashboard';
+        router.replace(path);
+      } catch {
+        localStorage.removeItem("authToken");
+      }
     }
   }, [router]);
   return (
