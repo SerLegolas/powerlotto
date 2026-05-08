@@ -42,6 +42,21 @@ export function LoginForm({ isRegister = false }: LoginFormProps) {
           redirectPath = "/amministrazione";
         }
       }
+
+      // Verifica definitiva lato server: evita mismatch tra token legacy/cache e ruolo reale in DB.
+      try {
+        const adminProbe = await fetch("/api/admin/users", {
+          method: "GET",
+          headers: { Authorization: `Bearer ${data.token}` },
+          cache: "no-store",
+        });
+        if (adminProbe.ok) {
+          redirectPath = "/amministrazione";
+        }
+      } catch {
+        // In caso di errore rete mantiene il redirect calcolato sopra.
+      }
+
       router.push(redirectPath);
     } catch {
       setError("Errore di rete. Riprova.");

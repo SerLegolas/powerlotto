@@ -161,6 +161,22 @@ export function DashboardComponent() {
     } catch {
       // Token non decodificabile: lascia proseguire i controlli gia esistenti.
     }
+
+    // Fallback server-side: se il token e legacy o incompleto, verifica ruolo reale via API admin.
+    void fetch('/api/admin/users', {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${token}` },
+      cache: 'no-store',
+    })
+      .then((res) => {
+        if (res.ok) {
+          router.replace('/amministrazione');
+        }
+      })
+      .catch(() => {
+        // Ignora: utente non admin o rete temporaneamente non disponibile.
+      });
+
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setAuthenticated(true);
     // eslint-disable-next-line react-hooks/immutability
