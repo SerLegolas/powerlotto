@@ -4,7 +4,7 @@ import { users } from "@/lib/db/schema";
 import { verifyAdminRequest } from "@/lib/utils/admin";
 
 export async function GET(request: NextRequest) {
-  const admin = verifyAdminRequest(request);
+  const admin = await verifyAdminRequest(request);
   if (!admin) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
