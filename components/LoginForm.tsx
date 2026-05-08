@@ -22,6 +22,7 @@ export function LoginForm({ isRegister = false }: LoginFormProps) {
       const res = await fetch("/api/auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        cache: "no-store",
         body: JSON.stringify({ email, password, action: isRegister ? "register" : "login" }),
       });
       const data = await res.json();
@@ -30,7 +31,18 @@ export function LoginForm({ isRegister = false }: LoginFormProps) {
         return;
       }
       localStorage.setItem("authToken", data.token);
-      router.push("/dashboard");
+      let redirectPath = "/dashboard";
+      try {
+        const payload = JSON.parse(atob(String(data.token).split(".")[1] || ""));
+        if (payload?.role === "admin" || payload?.isAdmin === 1) {
+          redirectPath = "/amministrazione";
+        }
+      } catch {
+        if (data?.user?.role === "admin") {
+          redirectPath = "/amministrazione";
+        }
+      }
+      router.push(redirectPath);
     } catch {
       setError("Errore di rete. Riprova.");
     }

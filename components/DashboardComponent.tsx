@@ -152,6 +152,15 @@ export function DashboardComponent() {
       router.replace('/login');
       return;
     }
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1] || ''));
+      if (payload?.role === 'admin' || payload?.isAdmin === 1) {
+        router.replace('/amministrazione');
+        return;
+      }
+    } catch {
+      // Token non decodificabile: lascia proseguire i controlli gia esistenti.
+    }
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setAuthenticated(true);
     // eslint-disable-next-line react-hooks/immutability
