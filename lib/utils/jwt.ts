@@ -5,6 +5,8 @@ const JWT_SECRET = process.env.JWT_SECRET!;
 export interface JWTPayload {
   userId: string;
   email: string;
+  role?: string;
+  isAdmin?: number;
 }
 
 export function generateToken(payload: JWTPayload): string {
@@ -18,6 +20,15 @@ export function verifyToken(token: string): JWTPayload | null {
   } catch {
     return null;
   }
+}
+
+export function verifyAdminToken(token: string): JWTPayload | null {
+  const payload = verifyToken(token);
+  if (!payload) return null;
+  if (payload.isAdmin === 1 || payload.role === "admin") {
+    return payload;
+  }
+  return null;
 }
 
 export function decodeToken(token: string): JWTPayload | null {
